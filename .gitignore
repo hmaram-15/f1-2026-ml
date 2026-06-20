@@ -1,0 +1,6 @@
+cache/
+*.ff1pkl
+*.sqlite
+__pycache__/
+*.pyc
+.DS_Store
