@@ -93,6 +93,7 @@ combined = pd.concat(all_laps, ignore_index=True)
 # Apply filters
 combined = combined[combined['TrackStatus'] == '1']
 combined = combined[combined['TyreLife'] > 1]
+combined = combined.copy()
 combined['LapTimeSeconds'] = combined['LapTime'].dt.total_seconds()
 combined = combined.dropna(subset=['LapTimeSeconds'])
 
@@ -144,3 +145,13 @@ mae    = mean_absolute_error(y_test, y_pred)
 
 print(f'\nModel MAE: {mae:.3f} seconds delta')
 print(f'Meaning degradation predictions are off by {mae:.3f}s on average')
+
+import joblib
+
+# Save the trained model and preprocessors
+joblib.dump(model, 'tire_model.pkl')
+joblib.dump(poly, 'tire_poly.pkl')
+joblib.dump(race_map, 'race_map.pkl')
+joblib.dump(compound_map, 'compound_map.pkl')
+
+print('Model saved to tire_model.pkl')
