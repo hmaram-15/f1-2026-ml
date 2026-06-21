@@ -107,6 +107,12 @@ def filter_outliers(df):
     return pd.concat(filtered)
 
 combined = filter_outliers(combined)
+# Add stint number per driver
+combined['Stint'] = combined.groupby(['Race', 'Driver'])['TyreLife'].transform(
+    lambda x: (x.diff() < 0).cumsum() + 1
+)
+
+print(combined[['Race', 'Driver', 'Compound', 'TyreLife', 'Stint']].head(30))
 
 print(f'\nTotal clean laps: {len(combined)}')
 print(combined[['Race', 'Driver', 'Compound', 'TyreLife', 'LapTimeSeconds']].head(20))
@@ -124,7 +130,7 @@ combined['FastestLap'] = combined.groupby('Race')['LapTimeSeconds'].transform('m
 combined['LapTimeDelta'] = combined['LapTimeSeconds'] - combined['FastestLap']
 
 # Now predict delta instead of raw lap time
-X = combined[['TyreLife', 'CompoundNum', 'RaceNum']].values
+X = combined[['TyreLife', 'CompoundNum', 'RaceNum', 'Stint']].values
 y = combined['LapTimeDelta'].values
 
 # Train/test split
