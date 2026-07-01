@@ -91,8 +91,8 @@ for year, race, _ in RACES:
             (s.results['Laps'] >= winner_laps - 1) & 
             (s.results['Status'] != 'Retired')
         ]['DriverNumber'].values
-        laps = laps[laps['DriverNumber'].isin(finishers)]
-        
+        laps = laps[laps['DriverNumber'].isin(finishers)].copy()
+
         laps['Race'] = race
         laps['Year'] = year
         all_laps.append(laps)
