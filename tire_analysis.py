@@ -66,29 +66,41 @@ def plot_driver_degradation(laps, driver, race_name):
     plt.show()
 
 # Races to load
-RACES = [
-    (2026, 'Australia', 'RUS'),
-    (2026, 'China',     'ANT'),
-    (2026, 'Japan',     'LEC'),
-    (2026, 'Miami',     'ANT'),
-    (2026, 'Canada',    'ANT'),
-    (2026, 'Monaco',    'ANT'),
-]
+# Auto-load all completed 2026 races
+schedule = fastf1.get_event_schedule(2026, include_testing=False)
+completed = schedule[schedule['EventDate'] < pd.Timestamp.now()]
+print(completed['EventName'].tolist())
+RACES = [(2026, row['EventName'], '') for _, row in completed.iterrows()]
 
 # Load all sessions and collect laps
 all_laps = []
 
 for year, race, _ in RACES:
     print(f'Loading {race} {year}...')
-    s = fastf1.get_session(year, race, 'R')
-    s.load(telemetry=False)
-    
-    laps = s.laps.copy()
-    laps['Race'] = race
-    laps['Year'] = year
-    all_laps.append(laps)
+    try:
+        s = fastf1.get_session(year, race, 'R')
+        s.load(telemetry=False)
+
+        if s.laps is None or len(s.laps) == 0:
+            print(f'Skipping {race} — no lap data')
+            continue
+        
+        laps = s.laps.copy()
+        winner_laps = s.results['Laps'].max()
+        finishers = s.results[
+            (s.results['Laps'] >= winner_laps - 1) & 
+            (s.results['Status'] != 'Retired')
+        ]['DriverNumber'].values
+        laps = laps[laps['DriverNumber'].isin(finishers)]
+        
+        laps['Race'] = race
+        laps['Year'] = year
+        all_laps.append(laps)
+    except Exception as e:
+        print(f'Skipping {race} — {e}')
 
 combined = pd.concat(all_laps, ignore_index=True)
+print("Races loaded:", combined['Race'].unique())
 
 # Apply filters
 combined = combined[combined['TrackStatus'] == '1']
