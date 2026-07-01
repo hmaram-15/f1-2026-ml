@@ -6,7 +6,7 @@ import requests
 import pandas as pd
 
 JOLPICA_BASE = "https://api.jolpi.ca/ergast/f1"
-ROUNDS = range(1, 9)  # Rounds 1-8
+ROUNDS = None  # set dynamically at runtime
 
 
 def time_to_seconds(time_str):
@@ -17,6 +17,28 @@ def time_to_seconds(time_str):
     minutes, seconds = time_str.split(':')
     return int(minutes) * 60 + float(seconds)
 
+def get_completed_rounds():
+    """Ask Jolpica how many 2026 races have results so far."""
+    rounds = set()
+    offset = 0
+    limit = 100
+    
+    while True:
+        url = f"{JOLPICA_BASE}/2026/results.json?limit={limit}&offset={offset}"
+        response = requests.get(url)
+        data = response.json()
+        
+        races = data['MRData']['RaceTable']['Races']
+        for r in races:
+            rounds.add(int(r['round']))
+        
+        total = int(data['MRData']['total'])
+        offset += limit
+        
+        if offset >= total:
+            break
+    
+    return sorted(rounds)
 
 def get_qualifying(round_num):
     url = f"{JOLPICA_BASE}/2026/{round_num}/qualifying.json"
@@ -98,6 +120,9 @@ def get_race_results(round_num):
 
 
 if __name__ == "__main__":
+    ROUNDS = get_completed_rounds()
+    print(f"Completed rounds detected: {ROUNDS}")
+    
     all_data = []
     
     for round_num in ROUNDS:
