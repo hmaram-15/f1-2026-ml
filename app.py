@@ -16,6 +16,15 @@ tire_poly = joblib.load('tire_poly.pkl')
 race_map = joblib.load('race_map.pkl')
 compound_map = joblib.load('compound_map.pkl')
 
+# Realistic max TyreLife per compound, based on 95th percentile across 2026 races
+MAX_TYRE_LIFE = {
+    'SOFT': 33,
+    'MEDIUM': 35,
+    'HARD': 37,
+    'INTERMEDIATE': 3,
+    'WET': 0,
+}
+
 
 @app.route('/predict', methods=['GET'])
 def predict():
@@ -41,15 +50,25 @@ def predict():
 @app.route('/predict_tire', methods=['GET'])
 def predict_tire():
     tyre_life = int(request.args.get('tyre_life'))
-    compound = request.args.get('compound')
+    compound = request.args.get('compound', '').upper()
     race = request.args.get('race')
     stint = int(request.args.get('stint', 1))
     
-    compound_num = compound_map.get(compound.upper(), -1)
+    compound_num = compound_map.get(compound, -1)
     race_num = race_map.get(race, -1)
     
     if compound_num == -1 or race_num == -1:
         return jsonify({'error': 'Unknown compound or race'}), 400
+    
+    max_life = MAX_TYRE_LIFE.get(compound, 0)
+    if max_life == 0:
+        return jsonify({'error': f'{compound} tires have no reliable 2026 data yet'}), 400
+    
+    if tyre_life > max_life:
+        return jsonify({
+            'error': f'{compound} tires rarely exceed {max_life} laps in 2026 data — prediction would be unreliable extrapolation',
+            'max_reliable_tyre_life': max_life
+        }), 400
     
     features = np.array([[tyre_life, compound_num, race_num, stint]])
     features_poly = tire_poly.transform(features)
