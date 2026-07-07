@@ -15,6 +15,7 @@ tire_model = joblib.load('tire_model.pkl')
 tire_poly = joblib.load('tire_poly.pkl')
 race_map = joblib.load('race_map.pkl')
 compound_map = joblib.load('compound_map.pkl')
+valid_combinations = joblib.load('valid_combinations.pkl')
 
 # Realistic max TyreLife per compound, based on 95th percentile across 2026 races
 MAX_TYRE_LIFE = {
@@ -59,7 +60,10 @@ def predict_tire():
     
     if compound_num == -1 or race_num == -1:
         return jsonify({'error': 'Unknown compound or race'}), 400
-    
+
+    if (race_num, compound_num) not in valid_combinations:
+        return jsonify({'error': f'{compound} has no reliable training data for {race} — try a different compound or race'}), 400
+
     max_life = MAX_TYRE_LIFE.get(compound, 0)
     if max_life == 0:
         return jsonify({'error': f'{compound} tires have no reliable 2026 data yet'}), 400

@@ -1,4 +1,5 @@
 import fastf1
+import joblib
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
@@ -119,6 +120,14 @@ def filter_outliers(df):
     return pd.concat(filtered)
 
 combined = filter_outliers(combined)
+
+# Drop (Race, Compound, TyreLife) groups with fewer than 3 samples to avoid noisy averages
+rows_before = len(combined)
+group_counts = combined.groupby(['Race', 'Compound', 'TyreLife'])['TyreLife'].transform('count')
+combined = combined[group_counts >= 3]
+rows_after = len(combined)
+print(f'\nMin-sample filter: {rows_before} rows before → {rows_after} rows after ({rows_before - rows_after} rows removed)')
+
 # Add stint number per driver
 combined['Stint'] = combined.groupby(['Race', 'Driver'])['TyreLife'].transform(
     lambda x: (x.diff() < 0).cumsum() + 1
@@ -140,6 +149,13 @@ combined['RaceNum'] = combined['Race'].map(race_map)
 # Normalize lap times per race — predict delta from fastest lap
 combined['FastestLap'] = combined.groupby('Race')['LapTimeSeconds'].transform('min')
 combined['LapTimeDelta'] = combined['LapTimeSeconds'] - combined['FastestLap']
+
+# Build valid (RaceNum, CompoundNum) combinations that survived all filters
+valid_combinations = set(
+    zip(combined['RaceNum'].astype(int), combined['CompoundNum'].astype(int))
+)
+joblib.dump(valid_combinations, 'valid_combinations.pkl')
+print(f'Valid (RaceNum, CompoundNum) combinations: {len(valid_combinations)}')
 
 # Now predict delta instead of raw lap time
 X = combined[['TyreLife', 'CompoundNum', 'RaceNum', 'Stint']].values
@@ -164,7 +180,14 @@ mae    = mean_absolute_error(y_test, y_pred)
 print(f'\nModel MAE: {mae:.3f} seconds delta')
 print(f'Meaning degradation predictions are off by {mae:.3f}s on average')
 
-import joblib
+# SOFT tyre degradation curve for Australian GP — check for non-monotonic noise
+aus_soft = combined[
+    (combined['Race'].str.contains('Australia', case=False, na=False)) &
+    (combined['Compound'] == 'SOFT')
+]
+if not aus_soft.empty:
+    print('\nAustralian GP — SOFT average LapTimeDelta by TyreLife:')
+    print(aus_soft.groupby('TyreLife')['LapTimeDelta'].mean().round(3).to_string())
 
 # Save the trained model and preprocessors
 joblib.dump(model, 'tire_model.pkl')
