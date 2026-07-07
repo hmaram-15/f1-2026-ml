@@ -12,8 +12,8 @@ Machine learning models for F1 2026 race analysis, served via a Flask API on Ren
 Predicts lap time delta from circuit fastest lap based on tyre life, compound, and stint number.
 
 - **Type:** Polynomial regression (degree 2)
-- **Data:** FastF1 lap telemetry — 8 races, 5,746 clean laps
-- **MAE:** 1.130 seconds delta
+- **Data:** FastF1 lap telemetry — 9 races, 6,144 clean laps (after min-sample filter)
+- **MAE:** 1.112 seconds delta
 - **Features:** TyreLife, CompoundNum, RaceNum, Stint
 
 **Data filtering methodology:**
@@ -21,8 +21,11 @@ Predicts lap time delta from circuit fastest lap based on tyre life, compound, a
 - `TyreLife > 1` — removes cold out laps
 - 2 standard deviation filter per race/compound — removes outliers from incidents or mechanical issues
 - Finisher filter (`winner_laps - 1`) — excludes DNFs and heavily lapped drivers whose stints don't represent real tyre behaviour
+- **Min-sample filter** — drops any (Race, Compound, TyreLife) combination with fewer than 3 data points, preventing the polynomial regression from fitting noisy 2-point averages that cause non-monotonic degradation curves
 
-**Key insight:** Lap times are normalized as deltas from each circuit's fastest lap rather than raw times. This removes circuit-to-circuit variation and dropped MAE from ~5.5s to ~1.1s.
+**Valid combinations:** Only 22 (RaceNum, CompoundNum) pairs survived all filters across 9 races. The API validates predictions against this set and rejects race/compound combinations with no training data (e.g., Australian Grand Prix + Soft tires, which had only 2 drivers and too few samples per TyreLife bucket).
+
+**Key insight:** Lap times are normalized as deltas from each circuit's fastest lap rather than raw times. This removes circuit-to-circuit variation and dropped MAE from ~5.5s to ~1.1s. The min-sample filter further eliminated spurious noise from sparse tail data.
 
 ---
 
