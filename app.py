@@ -43,33 +43,49 @@ MAX_TYRE_LIFE = {
 def fetch_race_context():
     """Fetch current championship standings and latest race results from Jolpica"""
     try:
-        # Find the latest completed round
         rounds = get_completed_rounds_for_chat()
         if not rounds:
             return "(No 2026 race data available yet)"
-        
+
         latest_round = max(rounds)
-        
+
         # Get standings after the latest round
         standings_url = f"{JOLPICA_BASE}/2026/{latest_round}/driverStandings.json"
         standings_resp = requests.get(standings_url, timeout=5)
         standings_data = standings_resp.json()
-        
+
         # Get results from the latest round
         results_url = f"{JOLPICA_BASE}/2026/{latest_round}/results.json"
         results_resp = requests.get(results_url, timeout=5)
         results_data = results_resp.json()
-        
+
         standings_list = standings_data.get('MRData', {}).get('StandingsTable', {}).get('StandingsLists', [])
         results_list = results_data.get('MRData', {}).get('RaceTable', {}).get('Races', [])
-        
-        top5_standings = standings_list[0].get('DriverStandings', [])[:5] if standings_list else []
-        top3_results = results_list[0].get('Results', [])[:3] if results_list else []
-        
+
+        # All drivers, up to 20
+        all_standings = standings_list[0].get('DriverStandings', [])[:20] if standings_list else []
+
+        # All finishers
+        all_results = results_list[0].get('Results', [])[:20] if results_list else []
+
+        standings_str = "\n".join([
+            f"{s.get('position')}. {s['Driver'].get('code', 'N/A')} ({s['Driver']['familyName']}) - {s.get('points')} pts, {s.get('wins')} wins"
+            for s in all_standings
+        ])
+
+        results_str = "\n".join([
+            f"{r.get('position')}. {r['Driver'].get('code', 'N/A')} ({r['Driver']['familyName']}) - {r.get('points')} pts"
+            for r in all_results
+        ])
+
         context = f"""
 Current 2026 F1 Championship (after Round {latest_round}):
-Top 5 Driver Standings: {top5_standings}
-Latest Race (Round {latest_round}) Top 3: {top3_results}
+
+**Full Driver Standings:**
+{standings_str}
+
+**Latest Race Results (Round {latest_round}):**
+{results_str}
 """
         return context
     except Exception as e:
