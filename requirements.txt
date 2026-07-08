@@ -7,3 +7,5 @@ requests
 joblib
 numpy
 gunicorn
+python-dotenv
+google-genai
